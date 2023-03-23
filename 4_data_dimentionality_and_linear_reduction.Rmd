@@ -1,0 +1,122 @@
+---
+title: "Data dimentionality and linear dimensional reduction"
+authors: "Karla Lindquist (with Angelo Pelonero and Rebecca Jaszczak)"
+date: "3/30/2021"
+output: html_notebook
+---
+
+</br>  
+
+#### Linear dimention reduction  
+
+Next we perform Principle Component Analysis (PCA) on the scaled data. By default, only the previously determined variable features are used as input, but can be defined using `features` argument if you wish to choose a different subset. Remember that in the previous notebook we used the `VariableFeatures()` function and we got a vector of the 2000 most variable genes.    
+
+```{r}
+str(VariableFeatures(pbmc))
+```
+
+Let's say we want to use a more rigorous approach. The `FindVariableGenes()` function calculates the average expression and dispersion for each gene, places these genes into bins, and then calculates a z-score for dispersion within each bin. See the help file for this function to learn more. There are other methods to get the variable genes as well. See the Seurat tutorial [here](https://satijalab.org/seurat/archive/v2.4/pbmc3k_tutorial.html) for more info ("Detection of variable genes across the single cells").   
+
+```{r}
+# see 
+# pbmc <- FindVariableGenes(object = pbmc, mean.function = ExpMean, dispersion.function = LogVMR, # x.low.cutoff = 0.0125, x.high.cutoff = 3, y.cutoff = 0.5)
+```
+
+
+For our PCA analysis, we will just use the `VariableFeatures()` (2000 genes).  
+
+```{r}
+pbmc <- RunPCA(pbmc, features = VariableFeatures(object = pbmc), verbose=FALSE)
+```
+
+
+Remember that the Seurat object holds analysis results as well as the data. Before running PCA we just had the "RNA" object that we just filtered/normalized. Now that we have run PCA, we should have these results (stored in the slots).  
+
+```{r}
+names(pbmc)
+slotNames(pbmc[["pca"]]) ## slot names for the pca part of our object (new!)
+```
+
+
+
+Seurat provides several useful ways of visualizing both cells and features that define the PCA, including `VizDimReduction()`, `DimPlot()`, and `DimHeatmap()`. Let's look at the first 10 genes in each Principal Component (PC):  
+
+```{r}
+print(pbmc[["pca"]], dims = 1:5, nfeatures = 10) ## dims specifieds the number of PCAs
+```
+
+
+Let's look at the top 4 PCs and the genes which define them.  
+
+```{r}
+#graphically investigate 
+VizDimLoadings(pbmc, dims = 1:4, reduction = "pca")
+```
+Use `DimPlot()` to help identify relational/spatial information for PC1 vs. PC2:    
+
+```{r}
+DimPlot(pbmc, reduction = "pca")
+```
+
+`DimHeatmap()` allows for easy exploration of the primary sources of heterogeneity in a dataset, and can be useful when trying to decide which PCs to include for further downstream analyses.
+
+Both cells and features are ordered according to their PCA scores. Setting the cells argument plots the ‘extreme’ cells on both ends of the spectrum, which dramatically speeds plotting for large datasets. Though clearly a heuristic analysis, we find this to be a valuable tool for exploring correlated feature sets. 
+
+Let's plot a heatmap of the top genes making up PC1 (purple is low, yellow is high).  
+```{r}
+DimHeatmap(pbmc, dims = 1, cells = 500, balanced = TRUE)
+```
+
+Let's use a heatmap to investigate the first 15 PCs and their top 5 defining genes.  
+
+```{r}
+DimHeatmap(pbmc, dims = 1:15, cells = 500, balanced = TRUE)
+```
+
+</br> 
+
+### Determining dataset dimentionality
+
+To overcome the extensive technical noise in any single feature for scRNA-seq data, Seurat clusters cells based on their PCA scores, with each PC essentially representing a ‘metafeature’ that combines information across a correlated feature (gene) set. The top principal components therefore represent a robust compression of the dataset. However, how many componenets should we choose to include? 10? 20? 100?
+
+In [Macosko et al](https://www.cell.com/abstract/S0092-8674(15)00549-8), the authors implemented a resampling test inspired by the JackStraw procedure. Here, we will randomly permute a subset of the data (1% = 100 replicates) and rerun PCA, constructing a ‘null distribution’ of feature scores, and repeat this procedure. We identify ‘significant’ PCs as those who have a strong enrichment of low p-value features.
+
+We will not run this during class since it can take a long time, but the code is below and we will read in the results after this.  More approximate techniques such as those implemented in ElbowPlot can be used to reduce computation time.  
+
+```{r}
+pbmc <- JackStraw(pbmc, num.replicate = 100, verbose=FALSE)
+pbmc <- ScoreJackStraw(pbmc, dims = 1:20)
+```
+
+</br>
+
+Again, we can save the object to enable loading back in without having to rerun computationally intensive steps above.  
+```{r}
+projdir <- sub("src", "", getwd()) 
+
+# saveRDS(pbmc, file = paste0(projdir, "./output/pbmc_tutorial_pca.rds"))
+# readRDS(paste0(projdir, "./output/pbmc_tutorial_pca.rds"))
+```
+
+
+
+The `JackStrawPlot` function provides a visualization tool for comparing the distribution of p-values for each PC with a uniform distribution (dashed line). ‘Significant’ PCs will show a strong enrichment of features with low p-values (solid curve above the dashed line). In this case it appears that there is a sharp drop-off in significance after the first 10-12 PCs. This distinction will not be clear with only 10 replicates (0.1% subset of the data), showing the importance of replicate number. Increasing the number of replicates (we used 100) increases statistical power. Try playing around with this by modifying the code above.  
+
+```{r}
+JackStrawPlot(pbmc, dims = 1:15)
+```
+
+
+
+Perhaps the most commonly used heuristic method generates an ‘Elbow plot’: a ranking of principle components based on the percentage of variance explained by each one (`ElbowPlot` function). In this example, we can observe an ‘elbow’ around PC9-10, suggesting that the majority of true signal is captured in the first 10 PCs. This is a classic visualization for PCs.
+```{r}
+ElbowPlot(pbmc)
+```
+Identifying the true dimensionality of a dataset can be challenging/uncertain for the user. We therefore suggest these three approaches to consider. The first is more supervised, exploring PCs to determine relevant sources of heterogeneity, and could be used in conjunction with GSEA for example. The second implements a statistical test based on a random null model, but is time-consuming for large datasets, and may not return a clear PC cutoff. The third is a heuristic that is commonly used, and can be calculated instantly. In this example, all three approaches yielded similar results, but we might have been justified in choosing anything between PC 6-10 as a cutoff.
+
+We chose 10 here, but encourage users to consider the following:
+
+  - Dendritic cell and NK aficionados may recognize that genes strongly associated with PCs 12 and 13 define rare immune subsets (i.e. MZB1 is a marker for plasmacytoid DCs). However, these groups are so rare, they are difficult to distinguish from background noise for a dataset of this size without prior knowledge.
+  - We encourage users to repeat downstream analyses with a different number of PCs (10, 15, or even 50!). As you will observe, the results often do not differ dramatically.
+  - We advise users to err on the higher side when choosing this parameter. For example, performing downstream analyses with only 5 PCs does signifcanltly and adversely affect results.
+  - That being said, including too many PCs can muddle clusters further down in the pipeline; garbage in, garbage out! It's very important to repeat downstream analysis with a different number of PCs to dial in on the appropriate number.

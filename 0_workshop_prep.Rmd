@@ -1,0 +1,75 @@
+---
+title: "Single Cell RNA-Seq Analysis - setup" 
+authors: "Karla Lindquist (with Angelo Pelonero and Rebecca Jaszczak)"
+date: "3/30/2021"
+output: html_notebook
+---
+
+<br/>
+
+### In this workshop, our objectives are to:  
+
+1. Load and inspect scRNA-seq data with R and Seurat 
+2. Understand the fundamental steps of preprocessing and quality control
+3. Prepare data for analysis by normalizing, scaling and filtering data  
+4. Identify principal components that identify variability and perform non-linear dimension reduction (UMAP and tSNE)
+5. Categorize cell types through clustering and visualize  
+
+<br/>
+
+##### Install required packages
+
+Instructions and notes:  
+
+* Please make sure that you have _current_ versions of R, Bioconductor, and RStudio installed.      
+  + [R](https://cran.r-project.org/)  
+  + [Bioconductor](https://bioconductor.org/install/)  
+  + [RStudio (free desktop version)](https://www.rstudio.com/products/rstudio/download/)  
+* Before attempting to run the code below, please open a new/fresh RStudio session.  
+* If you are still asked to restart RStudio, please do so (at least the first time - if you get asked multiple times, you can say No after doing it once). 
+* If you would like help with installation issues, feel free to email <karla.lindquist@ucsf.edu>.  
+* If you are taking this workshop live, please email me _by 5PM on the day before the workshop_ (I can't guarantee that I can fully help on the same day, so please try to run this code before). Troubleshooting will not be possible _during_ the workshop due to the online format. Thank you for your understanding.      
+
+
+```{r message=FALSE}
+## list packages
+pkgs <- c("dplyr","cowplot","Seurat", "lifecycle", "knitr", "patchwork", "BiocManager") 
+
+## install packages from CRAN and Bioconductor
+# install.packages(pkgs, update = TRUE, ask = FALSE)
+# BiocManager::install("limma")
+```
+
+</br> 
+
+* If you are taking this workshop live/online, you will not be running the code chunk above during the workshop. You should already have these packages installed (per setup instructions provided via email and above).  
+
+```{r}
+## load packages
+for(package in c(pkgs, "limma")) {
+  do.call("library", list(package))
+}
+```
+
+</br>
+
+##### Acknowledgments  
+
+To find package citations, you can use the `citation()` function with package name as the argument.   
+
+```{r}
+citation("Seurat")
+```
+</br> 
+
+
+The content of this workshop is largely taken from the `Seurat` vignettes, with some additional content contributed by Karla Lindquist, Angelo Pelonero, and Rebecca Jaszczak. We do not claim that this is original material. Some funding for our efforts was provided by the Committee on Library & Scholarly Communication at UCSF.  
+
+The purpose of joining the workshop live is to be able to discuss results together. Whether you are joining the workshop or working through these materials on your own, feel free to email <karla.lindquist@ucsf.edu> if you have any questions.  
+
+</br>
+
+##### Thank you and enjoy!  
+
+
+
